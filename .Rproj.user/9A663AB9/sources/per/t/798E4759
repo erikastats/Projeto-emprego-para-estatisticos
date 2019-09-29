@@ -1,0 +1,25 @@
+{
+    "collab_server" : "",
+    "contents" : "",
+    "created" : 1569763837848.000,
+    "dirty" : false,
+    "encoding" : "UTF-8",
+    "folds" : "",
+    "hash" : "685535745",
+    "id" : "798E4759",
+    "lastKnownWriteTime" : 1569777735,
+    "last_content_update" : 1569777735503,
+    "path" : "~/Projetos Érika/Projeto emprego para estatisticos/scr/scriptLimpezaDados.R",
+    "project_path" : "scr/scriptLimpezaDados.R",
+    "properties" : {
+        "cursorPosition" : "63,32",
+        "scrollLine" : "51"
+    },
+    "read_only" : false,
+    "read_only_alternatives" : [
+    ],
+    "relative_order" : 1,
+    "source_on_save" : false,
+    "source_window" : "",
+    "type" : "r_source"
+}

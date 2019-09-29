@@ -14,20 +14,20 @@
   library(knitr)
   library(kableExtra)
   
-  # Bibliotecas para análise de texto
-  library(tidytext)
+  # Bilioteca pra limpesa de dados
   library(tm)
-  
+    library(stringr)
+
   # Ler excel
+  library(readr)
   library(readxl)
+
+
   
-  # Bibliotecas de visualização de dados
-  library(plotly)
-
-
 #### Importando os dados e Juntando em um único arquivo ####
 
   # Identificando todos os arquivos do diretório com extensão .csv
+  setwd("../data")
   arquivos = dir() 
   arquivos = arquivos[arquivos %>%  str_detect(pattern = ".csv")]
   
@@ -57,7 +57,7 @@
   dadosVagast = do.call(rbind, dadosVagas)
   
   # Inserindo Ufs
-  Siglas = read_excel("/cloud/project/InfoDemografico/Siglas.xls")
+  Siglas = read_excel("../InfoDemografico/Siglas.xls")
   names(Siglas) = c('UF','Cidade')
   
   Adds = data.frame(UF = c('DF','MG','CE','PE'),
@@ -65,7 +65,7 @@
   Siglas = rbind(Siglas, Adds)
   
   # Função para remover acentos
-  RM_Acentos = function(x) iconv(x, to = "ASCII//TRANSLIT")
+  RM_Acentos = function(x) {iconv(x,from="UTF-8",to="ASCII//TRANSLIT")}
   
   # Tratando nome das cidade
   dadosVagast %<>% mutate(Cidade = toupper(Cidade))
@@ -119,26 +119,11 @@
     DataPubli %in% c("Hoje",'Today')      ~ DataPesquisa
   ))
   
-  # Dados4 %<>% 
-  #   mutate(DataPubli = as.Date(as.numeric(DataPubli), origin = "2019-12-30"))
-  
+
   Dados4 %<>% mutate(DataPubli = DataPesquisa - as.numeric(DataPubli)/(8.64e+7))
   
-  Dadost = rbind(Dados1,Dados2, Dados3, Dados4)
+  Dados = rbind(Dados1,Dados2, Dados3, Dados4)
 
-
-## Organizando NomeVaga
-
-# Removendo algumas palavras
-  # Atenção! Esse campo não altera a coluna original. Servirá somente para fazer uma WordCloud dos nomes das vagas
-  
-  stopwordd = c("Estagiário", "Estágio", "Pleno", "Sênior", "Júnior", "SR", "JR", "PL", "área de", "na área de") %>% tolower()
-  
-  nomevagas = Dados$NomeVaga %>% tolower() %>% 
-    removeWords( words = stopwordd) %>% 
-    removePunctuation() %>% 
-    str_replace_all(pattern = "business intelligence", replacement = "bi") %>% 
-    str_trim() %>% data.frame(stringsAsFactors = F)
 
 ## Organizando Salário
 
@@ -194,115 +179,48 @@ Dados %<>%  mutate(Pesquisa = Pesquisa %>%
                        str_replace_all("-", " "),# Substituindo a pontuação por espaço
                     NomeVaga = NomeVaga %>% tolower() %>% 
                       str_replace_all("b.i", "bi") %>% 
-                      str_replace_all(pattern = "[[:punct:]]", replacement = " "),
+                      str_replace_all(pattern = "[[:punct:]]", replacement = " ") %>% 
+                      RM_Acentos(),
                    Descricao = Descricao %>% tolower() %>% 
                      str_replace_all("b.i", "bi") %>% 
-                     str_replace_all(pattern = "[[:punct:]]", replacement = " ") # Substituindo a pontuação por espaço
+                     str_replace_all(pattern = "[[:punct:]]", replacement = " ") %>% # Substituindo a pontuação por espaço
+                       RM_Acentos(),
+                   Cidade = Cidade %>% toupper() %>% 
+                     RM_Acentos()
                      ) 
 
 d = Dados %>% filter(is.na(Pesquisa) | Pesquisa == "de emprego")
 
-#bb = Dados$Pesquisa %>% unique() %>% na.omit() %>% as.character()
-
-bb = c("estatístic"   ,        "cientista de dados"   ,
-        "data science"  ,        "business intelligence",
-        "big data"       ,       "data scientist"        ) 
-d %>%  group_by(Pesquisa) %>%  count()
-
-d %<>% mutate(Pesquisa = case_when(
-  str_detect(NomeVaga, pattern = "estatístic")~ "estatístico",
+Dados[is.na(Dados$Pesquisa) | Dados$Pesquisa == "de emprego",] = Dados[is.na(Dados$Pesquisa) | Dados$Pesquisa == "de emprego",] %>% mutate(Pesquisa = case_when(
+  str_detect(NomeVaga, pattern = "estatistic")~ "estatístico",
   str_detect(NomeVaga, "cientista de dados")  ~ "cientista de dados",
   str_detect(NomeVaga, "data science") ~ "data science",
   str_detect(NomeVaga, "business intelligence") | str_detect(NomeVaga, "bi")~ "business intelligence",
   str_detect(NomeVaga, "big data") ~ "big data",
   str_detect(NomeVaga, "data scientist") ~ "data scientist"
-  
-)) 
-
-d[is.na(d$Pesquisa),] = d %>% filter(is.na(Pesquisa)) %>% 
-  mutate(Pesquisa = case_when(
-    str_detect(Descricao, pattern = "estatístic")~ "estatístico",
-    str_detect(Descricao, "cientista de dados")  ~ "cientista de dados",
-    str_detect(Descricao, "data science") ~ "data science",
-    str_detect(Descricao, "business intelligence") | str_detect(Descricao, " bi ")~ "business intelligence",
-    str_detect(Descricao, "big data") ~ "big data",
-    str_detect(Descricao, "data scientist") ~ "data scientist"
 )) 
 
 
+Dados[is.na(Dados$Pesquisa),] = Dados %>% 
+                                  filter(is.na(Pesquisa)) %>% 
+                                  mutate( Pesquisa = case_when(
+                                    str_detect(Descricao, pattern = "estatistic") | 
+                                        str_detect(Descricao, pattern = "series temporais") |
+                                        str_detect(Descricao, pattern = "statistical")~ "estatístico",
+                                    str_detect(Descricao, "cientista de dados")|
+                                        str_detect(Descricao, "machine learning")|
+                                        str_detect(Descricao, "cientistas de dados")  ~ "cientista de dados",
+                                    str_detect(Descricao, "data science") ~ "data science",
+                                    str_detect(Descricao, "business intelligence")|
+                                        str_detect(Descricao, " bi ")| 
+                                        str_detect(Descricao, "power bi") ~ "business intelligence",
+                                    str_detect(Descricao, "big data") ~ "big data",
+                                    str_detect(Descricao, "data scientist") ~ "data scientist"
+                                )) 
 
-tes = d %>% filter(is.na(Pesquisa)) 
+Dados %<>% filter(!is.na(Pesquisa))
 
-tes %<>% mutate(Pesquisa = case_when(
-  str_detect(Descricao, pattern = "estatístic")~ "estatístico",
-  str_detect(Descricao, "cientista de dados")  ~ "cientista de dados",
-  str_detect(Descricao, "data science") ~ "data science",
-  str_detect(Descricao, "business intelligence") | str_detect(Descricao, "bi")~ "business intelligence",
-  str_detect(Descricao, "big data") ~ "big data",
-  str_detect(Descricao, "data scientist") ~ "data scientist"
-  
-)) 
-
-cc = sapply(1:nrow(tes), function(i){
-  sapply(bb, function(x){
-    y = x %>% str_split(" ", simplify = TRUE)
-    a = str_detect(tes$Descricao[i], pattern = y)
-    ifelse(mean(a) == 1, TRUE, FALSE)
-})  
- 
-}) %>% t()
-
-y = x %>% str_split(" ", simplify = TRUE)
-str_detect(tes$Descricao[23], pattern = y)
-
-str_detect(d$Descricao[23],pattern = bb)
-
-grepl(pattern, x, ignore.case = T)
-
-apply(cc, 1, function(x){sum(x,na.rm = T)})
-
-zeros =  which(apply(cc, 1, function(x){sum(x,na.rm = T)}) == 0)
-
-
-idunico = Dados$idVaga %>% unique()
-teste = Dados[Dados$idVaga == idunico[4],]
-naquant = is.na(teste$Pesquisa) %>% sum()
-if (naquant >= nrow(teste)){
-  
-}
-Pe = teste %>% group_by(Pesquisa) %>% count() %>% na.omit()
-maximo = Pe[which.max(Pe$n), 1]
-teste %<>% mutate(Pesquisa = ifelse(is.na(Pesquisa), maximo, Pesquisa))  
-
-
-b = which(Dados$Pesquisa == "de emprego")
-
-deemprego = Dados[b,]
-
-idunico = deemprego$idVaga %>% unique()
-
-deempregoL = Dados[-b,] 
-
-a = Dados[Dados$idVaga == "15321622",]
-
-tes = sapply( deemprego$idVaga, function(x){x %in% deempregoL$idVaga})
-
-# deemprego %>% 
-#   mutate(Pesquisa = case_when(
-#     Pesquisa == 
-#   
-# ))
-
-#str_detect("analista estatístico", pattern = "estatístic")
-
-
-
-
-# Limpando a área da Descrição
-Dados %<>% mutate(Descricao = Descricao %>% 
-                    str_replace_all(pattern = "[[:punct:][:blank:]]+", replacement = " ") %>% # Substituindo a pontuação por espaço
-                    tolower()) %>% 
-  mutate(Descricao = RM_Acentos(Descricao))
+# Acrescentando Requisitos
 
 pa = function(x, pattern){as.integer(grepl(pattern, x, ignore.case = T))}
 
@@ -332,32 +250,3 @@ Dados %<>% mutate(Pacote_Office = Descricao %>%  pa("pacote office"),
 
 
 
-
-
-
-
-
-
-
-
-# Dados %>% 
-#   distinct(idVaga, .keep_all = T) %>% 
-#   group_by(Salario) %>% 
-#   summarise ( n = n()) %>% 
-#   arrange(desc(n))
-
-case_when(
-#  str_detect("estatístico - cientista de dados", pattern = "estatístic") ~ "estatístico", 
-  str_detect("estatístico - cientista de dados", pattern = "cientista de dados")~"ds")
-
-# Dados %>% 
-#   distinct(idVaga, Cidade, .keep_all = T) %>% group_by(Perfil) %>% summarise(n = n()) %>% arrange(desc(n))
-
-
-# Identificar os programas requeridos
-
-# Quantidade de vagas ofertadas no período
-
-
-Dados %>% select(idVaga, Cidade) %>% unique() %>% nrow()
-Dados %>% distinct(idVaga, Cidade, .keep_all = T) %>%  select(QuantidadeVaga) %>% sum()
