@@ -1,0 +1,10 @@
+name: dashboard
+title:
+username:
+account: vagasemprego
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 1196137
+bundleId: 2415266
+url: https://vagasemprego.shinyapps.io/dashboard/
+when: 1568562042.05933
