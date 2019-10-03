@@ -1,0 +1,125 @@
+---
+title: "Análise texto"
+author: "Érika S."
+date: "25/08/2019"
+output: html_document
+---
+
+
+## Importando dados
+
+
+```{r, warning=FALSE, message=FALSE}
+#### Pacotes que serão usados
+# Bibliotecas para manipulação de dados
+library(tidyverse)
+library(magrittr)
+
+# Bibliotecas para tabelas
+library(knitr)
+library(kableExtra)
+# Bibliotecas para análise de texto
+library(tidytext)
+library(tm)
+
+# Bibliotecas de visualização de dados
+library(plotly)
+
+
+
+#### Importação dos dados
+arquivos = dir() 
+arquivos = arquivos[arquivos %>%  str_detect(pattern = ".csv")]
+
+
+Catho = arquivos[arquivos %>%  str_detect(pattern = "Catho")]
+Vagas = arquivos[arquivos %>%  str_detect(pattern = "Vagas")]
+
+dadosCatho = lapply(Catho, read_csv)
+dadosVagas = lapply(Vagas, read_csv)
+
+dadosCatho = do.call(rbind, dadosCatho)
+dadosVagas = do.call(rbind, dadosVagas)
+```
+
+### Unindo aos dois dados
+```{r}
+dadosCatho %<>% select(-UF) %>% mutate(Empresa = NA)
+
+# Reordenando as colunas
+dadosCatho = dadosCatho[,names(dadosVagas)]
+
+# Juntando os dados
+
+Dados = rbind(dadosVagas, dadosCatho)
+```
+
+# Análises do Texto
+
+Da forma que os dados de texto estão não é compatível para usar _tidy text analysis_. Nós não podemos filtrar corretamente as palavras ou contar cada ocorrência mais frequente porque cada elemento é composto por várias palavras. Nós precisamos converter isso em um _token_ por documento por linha.  
+> Um _token_ é o significado de uma unidade de texto, mais comumente uma palavra, que nós estamos interessados em usar na análise, e _tokenization_ é o processo de separar o texto em _tokens_.  
+
+```{r}
+tidy_dados = Dados %>% 
+  unnest_tokens(output = palavra, input = Descricao)
+```
+
+O primeiro argumento da função **unnest_tokens** é o nome da coluna que será criada, o segundo argumento é a coluna que será tokenizada. Essa função já coloca todas as letras em minúsculo e remove a pontuação. A seguir o resultado
+
+```{r}
+tidy_dados %>%  head() %>%  kable() %>% kable_styling()
+```
+
+Agora que os dados estão no formato uma-palavra-por-linha, nós podemos manipular com tidy tools como dplyr.  
+
+## Stop Word
+
+Stop Words são palavras que não são úteis para a análise, normalmente são pronomes, preposições como "para", "o", "que" e assim por diante. Nós podemos remover stop words 
+
+```{r}
+
+filtT_dados = tidy_dados %>% filter(!(palavra %in% stopwords("pt")))
+
+contando_dados = filtT_dados %>% count(palavra, sort = 3) 
+
+contando_dados %>% head() %>% kable() %>% kable_styling()
+```
+
+Vamos visualizar as palavras mais frequentes
+
+```{r}
+contando_dados %>% 
+  filter(n >= 5000) %>% 
+  plot_ly(x = ~n, y = ~palavra, type = "bar")
+```
+
+## Acentuação
+
+```{r}
+rm_accent <- function(x) {gsub("`|\\'", "", iconv(x, from="UTF-8", to = "ASCII//TRANSLIT"))}
+```
+
+##
+
+```{r}
+contando_dados %<>% mutate(proporcao = n/sum(n)) 
+
+a = cor(filtT_dados$palavra)
+```
+## Word Cloud
+
+```{r}
+library(wordcloud)
+
+contando_dados %>% with(wordcloud(palavra, n, max.words = 100))
+```
+
+## Tokanizando sentenças
+
+Algumas palavras sozinhas perdem o sentido
+
+```{r}
+PandP_sentences <- Dados %>% 
+  unnest_tokens(output = sentence, input = Descricao, token = "sentences")
+```
+
